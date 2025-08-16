@@ -1,289 +1,290 @@
 # ⚡ GoodWe Assistant — Starter (Streamlit + SEMS + Mock)
 
-Projeto **didático** para alunos do 1º ano de Ciência da Computação: uma interface simples em **Streamlit** que lê dados do **SEMS Portal (GoodWe)**, mostra **KPIs e gráficos**, e prepara o terreno para **IA** (explicação dos dados) e **voz** (perguntas por áudio).
-
-> **Ideia pedagógica:** começar com dados **mock**, entender a estrutura do código, **substituir** por dados reais do SEMS e, por fim, evoluir para IA e voz. Tudo com passos curtos e objetivos.
-
----
-
-## 🧭 Sumário
-
-- [Objetivos do Starter](#objetivos-do-starter)
-- [Pré‑requisitos](#pré-requisitos)
-- [Instalação (passo a passo)](#instalação-passo-a-passo)
-- [Como rodar (modo Mock)](#como-rodar-modo-mock)
-- [Como rodar (modo Real SEMS)](#como-rodar-modo-real-sems)
-- [Estrutura de Pastas e Arquivos](#estrutura-de-pastas-e-arquivos)
-  - [app.py](#apppy)
-  - [goodwe_client.py](#goodwe_clientpy)
-  - [ai.py](#aipy)
-  - [data/mock_today.json](#datamock_todayjson)
-  - [requirements.txt e .gitignore](#requirementstxt-e-gitignore)
-- [Personalizações (o que o aluno pode mudar)](#personalizações-o-que-o-aluno-pode-mudar)
-- [Como adicionar novas colunas/endereços de API](#como-adicionar-novas-colunasendereços-de-api)
-- [Boas práticas de credenciais](#boas-práticas-de-credenciais)
-- [Debug e resolução de problemas](#debug-e-resolução-de-problemas)
-- [Roteiro sugerido de Sprints](#roteiro-sugerido-de-sprints)
-- [Próximos passos (IA, Voz, Deploy)](#próximos-passos-ia-voz-deploy)
-- [FAQ — Erros comuns](#faq--erros-comuns)
+> **Guia do projeto para você seguir em aula.**  
+> Aqui está tudo que você precisa: o que é o SEMS, como funcionam os dados, como rodar o projeto em modo *mock* e em modo *real*, o que editar, como depurar, e quais evoluções fazer (IA e voz).
 
 ---
 
-## 🎯 Objetivos do Starter
+## 1) Objetivo do projeto
 
-1. **Visualizar** dados de um inversor/planta GoodWe (potência, energia do dia, SOC de bateria).  
-2. **Desacoplar** UI de coleta: a UI funciona com **mock** (sem internet) e depois com **SEMS** (real).  
-3. **Padronizar** a análise: calcular agregados (pico, energia do dia, SOC início/fim) e **explicar** com texto.  
-4. **Preparar** a turma para evoluir: IA de verdade (LLM), Voz no navegador e Alexa Skill em sprints posteriores.
-
----
-
-## 🧰 Pré‑requisitos
-
-- **Python 3.10+** (Windows, macOS ou Linux).  
-- **pip** atualizado.  
-- (Opcional) **VS Code** + extensão **Python**.  
-- Acesso à internet (para usar o modo **Real SEMS**).
-
-> Se for usar dados reais do SEMS, você precisa de um **account/senha** e do **Serial Number (SN)** do inversor (ou o ID correto dependendo do endpoint).
+- Visualizar, de forma simples, os dados de um **inversor GoodWe** (potência, energia do dia, estado de carga da bateria).  
+- Começar **com dados simulados (mock)** para entender a interface e os gráficos.  
+- Trocar o *mock* por **dados reais do SEMS Portal** usando a API (com *login* e *token*).  
+- Preparar terreno para evoluir: **IA** (texto explicativo) e **voz** (comandos por áudio).
 
 ---
 
-## ⚙️ Instalação (passo a passo)
+## 2) Conceitos essenciais (GoodWe / SEMS)
 
-1) **Crie** e ative um ambiente virtual (opcional, mas recomendado):
+Antes de ligar qualquer código, entenda estes termos. Eles vão aparecer no app e nas respostas da API.
 
-```bash
-# Windows (PowerShell)
-python -m venv .venv
-.venv\Scripts\Activate.ps1
+### 2.1 SEMS Portal
+- Plataforma web da **GoodWe** para monitorar plantas fotovoltaicas e dispositivos (inversores, baterias, medidores).  
+- O SEMS exibe **plantas** (conjuntos) e, dentro delas, **dispositivos** (por ex. um inversor com um **Serial Number – SN**).
 
-# macOS/Linux
-python3 -m venv .venv
-source .venv/bin/activate
-```
+### 2.2 Identificadores
+- **Plant ID**: identificador da planta no SEMS (aparece na URL depois que você entra na planta).  
+- **Serial Number (SN)** do inversor: está na página de dispositivos/overview.  
+- Em muitos endpoints, o parâmetro **`id`** é o **SN** do inversor.
 
-2) **Instale** as dependências:
+### 2.3 Regiões (hosts)
+- O login costuma ser feito em **US** (`https://us.semsportal.com`), mas o retorno pode apontar que os **dados** estão na **EU** (`https://eu.semsportal.com`).  
+- No app, escolha **Região de login** (US/EU) e **Região de dados** (EU/US) conforme o seu caso.  
+  - Com a conta **demo**, use normalmente **Login = US** e **Dados = EU**.
 
-```bash
-pip install -r requirements.txt
-```
+### 2.4 Autenticação (Token)
+1. Envie um **Token inicial** no *header* (é um JSON simples encodado em **Base64**).  
+2. Faça `POST /api/v2/common/crosslogin` com `account` e `pwd`.  
+3. Na resposta, pegue o campo **`data`**, **encode em Base64** e use esse valor como **Token** em todas as chamadas seguintes.  
+4. Chame os endpoints de dados (ex.: `GetInverterDataByColumn`) com esse Token “pós-login”.
 
-3) **Rode** o app:
+### 2.5 Colunas e unidades (exemplos do projeto)
+- **`Pac`** (kW): potência AC instantânea do inversor (varia ao longo do dia).  
+- **`Eday`** (kWh): energia acumulada gerada no **dia** (cresce de 00:00 até o fim do dia).  
+- **`Cbattery1`** (%): estado de carga da bateria (SOC).  
+- Outras colunas possíveis em cenários reais: **`Temp`** (temperatura), **`Vac`** (tensão AC), etc.  
+- O app já está preparado para receber séries “tempo → valor” e plotar.
 
-```bash
-streamlit run app.py
-```
-
-> Abrirá no navegador (geralmente em `http://localhost:8501`).
-
----
-
-## ▶️ Como rodar (modo Mock)
-
-No **sidebar**, deixe **Modo de dados = Mock (recomendado para começar)**.  
-Esse modo usa apenas o arquivo `data/mock_today.json` para alimentar gráficos e KPIs. É ideal para:
-
-- rodar **offline**;
-- manter a turma no **fluxo de UI/plot** antes de APIs;
-- simular rapidamente um “dia típico” de geração e bateria.
+### 2.6 Datas / Fuso horário
+- O endpoint usado no exemplo aceita `date` no formato **`YYYY-MM-DD HH:MM:SS`**.  
+- O SEMS frequentemente devolve horários no formato **`DD/MM/YYYY HH:MM:SS`**.  
+- O app converte automaticamente e suporta ambos (usa `dayfirst=True` quando necessário).
 
 ---
 
-## 🌐 Como rodar (modo Real SEMS)
+## 3) Pré-requisitos
 
-1) No **sidebar**, escolha **Modo de dados = Real (SEMS)**.  
-2) Informe:
-   - **Inverter SN** (ex.: `5010KETU229W6177`).  
-   - **Data** (o endpoint do exemplo usa uma data com hora interna `00:00:00`).  
-   - **Região de login**: geralmente **US** (funciona com a conta de demo).  
-   - **Região de dados**: geralmente **EU** (o próprio `crosslogin` costuma apontar para `eu.semsportal.com`).
-   - **SEMS_ACCOUNT** e **SEMS_PASSWORD** (para DEMO já ficam preenchidos).  
-
-3) Escolha as **colunas** (comece com `Cbattery1`; depois teste `Pac` e `Eday`).  
-4) Clique fora dos campos e aguarde o carregamento. Se algo não vier, um **expander** mostrará o **JSON bruto** da resposta para debug.
-
-> O fluxo é o mesmo que o script `requests` do professor: `crosslogin` → gera **Token** (Base64 do `data`) → `GetInverterDataByColumn` com `id` (SN), `column` (`Cbattery1`) e `date` (`YYYY-MM-DD HH:MM:SS`).
+- **Python 3.10+**  
+- **pip** atualizado  
+- (Opcional) **VS Code** com extensão **Python**  
+- Internet para usar o modo **Real (SEMS)**
 
 ---
 
-## 🗂️ Estrutura de Pastas e Arquivos
+## 4) Instalação (passo a passo)
 
-```
-goodwe-assistant/
-├─ app.py                 # UI Streamlit: gráficos, KPIs, modo Mock/Real, parser e merge
-├─ goodwe_client.py       # Login (crosslogin) + chamada GetInverterDataByColumn
-├─ ai.py                  # "explicação" de dados (stub, sem LLM ainda)
-├─ data/
-│  └─ mock_today.json     # amostra de dados para um dia (Pac, Eday, Cbattery1)
-├─ requirements.txt       # dependências
-└─ .gitignore
-```
+1. Abra um terminal dentro da pasta do projeto `goodwe-assistant`.  
+2. (Opcional) Crie e ative um **ambiente virtual**:
 
-### `app.py`
+   **Windows (PowerShell)**
+   ~~~bash
+   python -m venv .venv
+   .venv\Scripts\Activate.ps1
+   ~~~
 
-- **O que faz**: toda a interface em **Streamlit**. Mostra KPIs (Energia do dia, Pico de potência, SOC início→fim), gráficos e tabela.  
-- **Partes-chave**:
-  - `carregar_mock(...)`: lê o JSON de mock e devolve um `DataFrame` com a coluna `time`.  
-  - `resumo_dia(df)`: calcula **agregados** (energia, pico, horários, SOC).  
-  - `parse_column_timeseries(resp_json, column_name)`: **interpreta** a resposta do SEMS e extrai série temporal.  
-    - Suporta o formato `data.column1 = [{ "date": "...", "column": 88.0 }, ...]` (caso real).  
-    - Também tenta outras variações (`time`, `value`, `v`, `val` etc.).  
-    - Converte automaticamente datas no padrão **DD/MM/YYYY** ou **MM/DD/YYYY**.  
-  - `fetch_realtime_df(...)`: faz `crosslogin`, busca **várias colunas** e faz um **merge_asof** por tempo.  
-  - Sidebar: alterna **Mock**/ **Real (SEMS)** e configura colunas, regiões e credenciais.
-- **O que você pode mudar**:
-  - **KPIs**: adicione novas métricas usando colunas adicionais (ex.: `Temp`).  
-  - **Gráficos**: mude títulos, eixos, `markers=True/False`.  
-  - **Colunas**: mude a lista-padrão na sidebar.  
-  - **Parser**: se o endpoint voltar em outro formato, ajuste as chaves no `parse_column_timeseries`.
+   **macOS / Linux**
+   ~~~bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ~~~
 
-### `goodwe_client.py`
+3. Instale as dependências:
+   ~~~bash
+   pip install -r requirements.txt
+   ~~~
 
-- **O que faz**: encapsula chamadas HTTP ao SEMS.
-  - `crosslogin(account, pwd, region) -> token`: faz POST para `/api/v2/common/crosslogin`, e devolve o **Token** (Base64 do `data`).  
-  - `get_inverter_data_by_column(token, inv_id, column, date, region)`: chama `/api/PowerStationMonitor/GetInverterDataByColumn`.
-- **O que você pode mudar**:
-  - **Regiões**: dicionário `BASE = {"us": "...", "eu": "..."}`. Adapte se o seu ambiente usar outro host.  
-  - **Timeouts**: altere `timeout=20`.  
-  - **Novos endpoints**: crie novas funções seguindo o mesmo padrão (headers com `Token`, payloads JSON e `raise_for_status()`).
-
-### `ai.py`
-
-- **O que faz**: gera um texto simples a partir do `resumo_dia` (**sem LLM**). Serve para validar a “narrativa” antes de gastar tokens em IA.  
-- **O que você pode mudar**:
-  - Trocar por chamada a um **LLM** (OpenAI/Azure/Ollama). **Dica didática**: **não** envie o `df` inteiro; envie **agregados** (números) e peça para o modelo **explicar**.
-
-### `data/mock_today.json`
-
-- **O que é**: uma amostra para um dia (horas do dia com `Pac`, `Eday`, `Cbattery1`).  
-- **O que você pode mudar**:
-  - Substitua os valores para simular outros dias.  
-  - Adicione novas chaves/colunas e ajuste o `app.py` para plotá-las.
-
-### `requirements.txt` e `.gitignore`
-
-- **requirements**: lista de pacotes (Streamlit/Pandas/Plotly/Requests).  
-- **.gitignore**: evita subir `__pycache__`, `.env` e configurações locais.
+4. Execute o app:
+   ~~~bash
+   streamlit run app.py
+   ~~~
+   O navegador abrirá em `http://localhost:8501`.
 
 ---
 
-## 🎛️ Personalizações (o que o aluno **pode** mudar)
+## 5) Estrutura do projeto (o que cada arquivo faz)
 
-- **Tema/cores** (Streamlit): crie `.streamlit/config.toml` e personalize o tema do app.  
-- **Colunas exibidas**: adicione/remova opções na sidebar e nos gráficos (ex.: `Temp`, `Vac`, etc.).  
-- **KPIs extra**: exibir **média** de potência, **hora de início** da geração, **tempo acima de X kW**, etc.  
-- **Período**: hoje o exemplo usa **um dia**. Você pode repetir consultas por datas distintas e **concatenar** resultados para mostrar **semana/mês**.  
-- **Layout**: reorganizar colunas, usar `st.tabs`, inserir explicações com Markdown para “guiar” o usuário final.
 
----
+### 5.1 `app.py` (interface)
+- Mostra os **KPIs**: Energia do dia, Pico de potência, Bateria (início → fim).  
+- Exibe **gráficos** (linhas) de `Pac` e `Cbattery1` ao longo do tempo.  
+- Alterna entre **Mock** e **Real (SEMS)** no **sidebar**.  
+- Em **Real**, chama a API, **extrai série temporal** do JSON e faz **merge por tempo** quando há múltiplas colunas.  
+- Se o formato do JSON vier diferente, o app abre um **expander** com a resposta bruta para depurar.
 
-## ➕ Como adicionar novas colunas/endereços de API
+### 5.2 `goodwe_client.py` (API SEMS)
+- `crosslogin(account, pwd, region)` → devolve o **Token** (Base64 do `data`).  
+- `get_inverter_data_by_column(token, inv_id, column, date, region)` → devolve o **JSON** da coluna pedida (por exemplo `Cbattery1`) para a `date` informada.  
+- Use o **SN** do inversor em `inv_id` (o parâmetro chama-se `id` na requisição).
 
-1) **No app (modo Real)**, inclua a coluna na seleção da sidebar (ex.: `Temp`).  
-2) O `fetch_realtime_df(...)` chamará `GetInverterDataByColumn` para cada coluna.  
-3) Se a resposta tiver **outro formato**, ajuste o `parse_column_timeseries(...)`. Ex.:
+### 5.3 `ai.py` (texto explicativo)
+- Recebe os **agregados** (energia total, pico e horário do pico, SOC início e fim) e monta um **texto curto**.  
+- Está sem LLM; serve para validar o fluxo. Depois troque por um modelo de IA (OpenAI/Ollama etc.).
 
-```python
-# Exemplo: o endpoint devolve {"data":{"column1":[{"date":"08/12/2025 00:00:00","column":88.0}, ...]}}
-# Já suportado. Se vier, por exemplo, {"result":[{"tm":"...", "val":"..."}]}, mapeie 'tm' e 'val' nas linhas do parser.
-```
-
-4) Para **novos endpoints** (ex.: totais diários, status do inversor etc.), crie uma função em `goodwe_client.py` com:
-   - Montagem do **header** `{"Token": <token>, "Content-Type": "application/json"}`  
-   - Montagem do **payload** (veja no seu inspetor/SDKs)  
-   - `requests.post(...)`/`get(...)` + `r.raise_for_status()`  
-   - Retorne o `r.json()`; **parseie** no `app.py` para `DataFrame` e plote.
+### 5.4 `data/mock_today.json` (dados simulados)
+- Contém amostras horárias de `Pac`, `Eday` e `Cbattery1` para um dia.  
+- Use esse arquivo para praticar a interface sem depender de rede/credenciais.
 
 ---
 
-## 🔐 Boas práticas de credenciais
+## 6) Como rodar **Mock** (primeiro contato)
 
-- **Nunca** comite `SEMS_ACCOUNT`/`SEMS_PASSWORD`.  
-- Prefira **variáveis de ambiente** (já suportadas).  
-- (Opcional) Use `python-dotenv` para um arquivo `.env` **local** (não comite):
-  ```bash
-  pip install python-dotenv
-  ```
-  ```python
-  # no início do app.py
-  from dotenv import load_dotenv; load_dotenv()
-  ```
-- **Desative**/remova credenciais de **demo** em produção.
+1. No **sidebar**, selecione **Modo de dados = Mock (recomendado para começar)**.  
+2. Observe KPIs e gráficos.  
+3. Clique em **“Analisar com IA (stub)”** para ver o texto gerado a partir dos agregados.  
+4. Abra **“Ver tabela de dados”** para enxergar a série de tempo.  
+5. Baixe **CSV**/JSON para conferir.
+
+> Dica de estudo: edite `data/mock_today.json` (valores de `Pac`/`Cbattery1`) e recarregue para ver como KPIs e gráficos reagem.
 
 ---
 
-## 🩺 Debug e resolução de problemas
+## 7) Como rodar **Real (SEMS)**
 
-- **“Não consegui parsear a coluna…”**  
-  - Abra o **“Ver resposta JSON (coluna)”** e verifique onde está a lista (ex.: `data.column1`).  
-  - Ajuste o parser mapeando **chaves de tempo** (`time`, `date`, `tm`...) e **valor** (`value`, `v`, `val`, `column`...).  
-- **200 OK mas sem dados**  
-  - `SN/ID` incorreto para o endpoint escolhido.  
-  - **Região** incorreta (tente **login US** + **dados EU** como no exemplo).  
-  - Data fora de cobertura (tente outro dia).  
-- **401/403**  
-  - Token inválido/expirado → garanta que o **Token** usado é o **Base64 do `data`** do `crosslogin` mais recente.  
-- **Timeouts**  
-  - Links/hosts lentos → ajuste `timeout=20` no `goodwe_client.py` e repita.  
-- **Formato de data**  
-  - O SEMS às vezes retorna `DD/MM/YYYY`. O app tenta as duas formas (`dayfirst=True`).
+1. No **sidebar**, selecione **Modo de dados = Real (SEMS)**.  
+2. **Inverter SN**: informe o SN (ex.: `5010KETU229W6177`).  
+3. **Data**: selecione a data de interesse (o app monta `YYYY-MM-DD 00:00:00`).  
+4. **Login SEMS**  
+   - **Região de login**: escolha **US** (para a conta demo).  
+   - **Região de dados**: escolha **EU** (com a demo, o retorno costuma indicar dados na EU).  
+   - **SEMS_ACCOUNT**: `demo@goodwe.com` (ou sua conta).  
+   - **SEMS_PASSWORD**: `GoodweSems123!@#` (ou sua senha).  
+5. **Colunas**: deixe, para começar, `Cbattery1`. Depois adicione `Pac` e `Eday`.  
+6. Aguarde o carregamento.  
+   - Se aparecer aviso **“Não consegui parsear a coluna…”**, clique em **“Ver resposta JSON”** e observe:
+     - Onde está a **lista** de pontos (`data.column1`, `items`, `list`…);  
+     - Qual é o **campo de tempo** (`date`, `time`, `tm`…) e qual é o **campo do valor** (`column`, `value`, `v`, `val`…).
 
----
-
-## 🗓️ Roteiro sugerido de Sprints
-
-**Sprint 1 (UI + Mock)**  
-- Rodar app, entender gráficos e KPIs.  
-- Alterar o mock, recalcular KPIs.  
-- **Entrega**: vídeo curto mostrando dashboard + explicando os números.
-
-**Sprint 2 (Real SEMS)**  
-- Conectar com `crosslogin`, buscar `Cbattery1` e `Pac`.  
-- Ajustar parser se necessário.  
-- **Entrega**: dashboard com dados reais de 1 dia.
-
-**Sprint 3 (IA explicativa)**  
-- Calcular agregados e gerar texto com LLM (substituir `ai.py`).  
-- **Entrega**: botão “Explicar o dia” gerando 1–2 parágrafos objetivos.
-
-**Sprint 4 (Voz → Navegador ou Alexa)**  
-- Navegador: gravação + STT (Whisper/Local) + TTS.  
-- Opcional: **Alexa Skill** (ASK + Lambda) chamando a mesma lógica de dados.
+> Exemplo real comum:  
+> A resposta vem como  
+> `{"data":{"column1":[{"date":"08/12/2025 00:00:00", "column":88.0}, ...]}}`.  
+> O app já mapeia `date` → **time** e `column` → **valor**.
 
 ---
 
-## 🚀 Próximos passos (IA, Voz, Deploy)
+## 8) O que editar para **personalizar**
 
-- **IA real (LLM)**: substituir `ai.py` para usar OpenAI/Azure/Local (Ollama), sempre enviando **agregados** (não a tabela inteira).  
-- **Voz**:
-  - Navegador: integrar **Web Speech API** (STT/TTS) via componente Streamlit (p.ex. `streamlit-webrtc`).  
-  - Alexa: criar **Skill** com intents “energia de hoje”, “status da bateria”; a Lambda chama o mesmo `goodwe_client`.  
-- **Deploy**:
-  - **Streamlit Community Cloud** (UI) + **Render/Railway/Cloud Run** (se separar backend).  
-  - Para MVP, dá para hospedar tudo no próprio Streamlit Cloud (modo Mock/Real com cautela).
+### 8.1 Editar **KPIs** (em `app.py`)
+- Abra a função `resumo_dia(df)`.  
+- Calcule novos indicadores (ex.: **média de potência**, **hora de início da geração**).  
+- Exiba em novos `st.metric(...)` no topo, como já é feito com Energia do dia/Pico/SOC.
+
+### 8.2 Editar **gráficos** (em `app.py`)
+- Procure onde `px.line(...)` é chamado para `Pac` e `Cbattery1`.  
+- Troque títulos, adicione/remova `markers=True`, crie **abas** (`st.tabs`) para organizar.
+
+### 8.3 Adicionar **novas colunas** (em `app.py`)
+- No **sidebar**, inclua a nova coluna na lista de seleção (ex.: `Temp`).  
+- O `fetch_realtime_df(...)` já busca **várias colunas** e as combina por tempo.  
+- Se o JSON vier em outro formato, ajuste a função `parse_column_timeseries(...)` mapeando as chaves corretas.
+
+### 8.4 Ajustar **parser** (se necessário)
+- Abra o **JSON** no expander.  
+- Verifique:
+  - Onde está a **lista** (ex.: `data.column1`).  
+  - Qual é o **campo de tempo** (`date`, `time`, `tm`…)  
+  - Qual é o **campo de valor** (`column`, `value`, `v`, `val` ou a própria `coluna` pelo nome).  
+- Altere o trecho correspondente em `parse_column_timeseries(...)`.
+
+### 8.5 Alterar **regiões** (em `goodwe_client.py`)
+- Edite o dicionário `BASE = {"us": "...", "eu": "..."}` se precisar apontar para outro host.  
+- Ajuste `timeout` das requisições se a rede estiver lenta.
 
 ---
 
-## ❓ FAQ — Erros comuns
+## 9) Como o fluxo funciona (por baixo dos panos)
 
-**1) “Login OK, mas os gráficos não aparecem.”**  
-Verifique **Região de dados** (muitas vezes **EU**), **SN** correto e **data**. Veja o JSON exposto.
-
-**2) “Parser não achou `time`.”**  
-Mapeie `date`, `tm`, `collectTime` etc. no `parse_column_timeseries` (já há exemplos no código).
-
-**3) “Quero 7 dias de dados.”**  
-Faça um loop de datas chamando a função por dia e `concat` os `DataFrames`. Depois plote barra/linha semanal.
-
-**4) “Como troco idioma/formato?”**  
-Os textos estão em PT‑BR; altere strings na UI. O parser detecta `DD/MM` (dayfirst).
-
-**5) “Como guardo histórico?”**  
-Salve CSV/JSON diários em uma pasta (`data/real/YYYY-MM-DD.json`). Dá pra criar um botão “Salvar histórico”.
+1. **Token inicial (pré-login)**  
+   - Envie um *header* `Token` com um JSON simples (uid vazio, client “web”, etc.) **encodado em Base64**.
+2. **Crosslogin**  
+   - `POST /api/v2/common/crosslogin` com `account` e `pwd`.  
+   - Resposta traz `data` com `uid`, `timestamp`, `token`, etc.  
+   - **Encode `data` em Base64** → isso vira o **Token “pós-login”** para as próximas chamadas.
+3. **Dados de coluna**  
+   - `POST /api/PowerStationMonitor/GetInverterDataByColumn` com:
+     ~~~json
+     {
+       "date": "YYYY-MM-DD 00:00:00",
+       "column": "Cbattery1",
+       "id": "SEU_SN_AQUI"
+     }
+     ~~~
+   - O JSON comum traz `{"data":{"column1":[{"date":"...", "column":<valor>}, ...]}}`.
+4. **Parser**  
+   - Extrai pares **tempo → valor** independente do campo exato (`date/time/tm`, `column/value/v/val`).  
+   - Converte datas `DD/MM` ↔ `MM/DD` automaticamente.  
+5. **Merge de colunas**  
+   - Busca várias colunas e usa `merge_asof` por `time` para juntar na mesma tabela.  
+6. **KPIs e gráficos**  
+   - Calcula agregados (energia, pico, SOC) e mostra linhas no tempo.
 
 ---
 
-> **Dica final para apresentar em sala**: começar **mock** (segurança/confiança), ligar **Real**, abrir um **JSON** e mostrar como a gente “descobre” as chaves certas. Em seguida, pedir que cada grupo **personalize** 1 KPI e 1 gráfico.
+## 10) Boas práticas de **credenciais**
 
-Bom estudo! ✨
+- Não deixe `account` e `pwd` no código fonte.  
+- Use **variáveis de ambiente** (o app já lê se existirem).  
+- Se quiser um `.env` local (sem subir para o Git):
+  1. Instale `python-dotenv`: `pip install python-dotenv`  
+  2. No topo do `app.py`, adicione:
+     ~~~python
+     from dotenv import load_dotenv
+     load_dotenv()
+     ~~~
+  3. Crie um `.env` com:
+     ~~~
+     SEMS_ACCOUNT=seu_email
+     SEMS_PASSWORD=sua_senha
+     SEMS_REGION=us
+     ~~~
+
+---
+
+## 11) Depuração (erros comuns e como resolver)
+
+- **“Não consegui parsear a coluna …”**  
+  - Abra “Ver resposta JSON” e confirme:  
+    - onde está a lista (`data.column1`/`items`/`list`/`datas`/`result`);  
+    - qual é o campo de tempo (`date`/`time`/`tm`/`collectTime`/`cTime`);  
+    - qual é o campo de valor (`column`/`value`/`v`/`val`/`nome da coluna`).  
+  - Ajuste `parse_column_timeseries(...)`.
+
+- **HTTP 200 mas sem dados**  
+  - Confira o **SN** informado.  
+  - Ajuste **Região de login** e **Região de dados** (com a demo, use Login=US e Dados=EU).  
+  - Tente outra **data**.
+
+- **401/403 (não autorizado)**  
+  - Refazer o **crosslogin** para obter **novo Token** (ele pode expirar).  
+  - Conferir se o **Token** no header é o **Base64 do `data`** da última resposta de login.
+
+- **Timeout / rede lenta**  
+  - Aumentar o `timeout` nas chamadas no `goodwe_client.py`.  
+  - Testar conectividade/hosts.
+
+- **Datas mal interpretadas**  
+  - O parser tenta `dayfirst=True`. Se ainda assim falhar, ajuste a conversão manualmente.
+
+---
+
+## 12) Roteiro de estudo (entregas)
+
+**Etapa 1 — UI + Mock**  
+- Rode o app em modo Mock.  
+- Edite o `mock_today.json` e mostre que KPIs e gráficos mudam.  
+- Grave um vídeo curto explicando o dashboard.
+
+**Etapa 2 — Dados reais (SEMS)**  
+- Faça login, busque `Cbattery1`, depois `Pac` e `Eday`.  
+- Mostre o expander com o JSON e explique como o parser funciona.
+
+**Etapa 3 — Explicação automática (IA)**  
+- Substitua o `ai.py` por uma chamada de LLM (envie apenas os agregados numéricos).  
+- Gere 1–2 parágrafos sobre o “comportamento do dia” (picos/vales/SOC).
+
+**Etapa 4 — Voz**  
+- Integre captura de áudio (navegador) + STT (Whisper/local) + TTS.  
+- Faça perguntas como “Qual a energia do dia?” e responda por voz.
+
+---
+
+## 13) Próximas evoluções
+
+- **Mais colunas** (temperatura, tensão, etc.) e novos KPIs.  
+- **Períodos maiores** (semana/mês): repita consultas por dia e *concatene* resultados.  
+- **Histórico local**: botão para salvar o JSON/CSV de cada dia em `data/real/AAAA-MM-DD.json`.  
+- **Deploy**: publicar no Streamlit Cloud para demonstração (atenção a credenciais).  
+- **Alexa Skill**: modelar intents (“energia de hoje”, “status da bateria”) e chamar a mesma lógica do `goodwe_client`.
+
+---
+
+> Siga este README passo a passo. Comece em **Mock**, entenda a **interface**, depois ligue o **Real**, ajuste o **parser** quando necessário e avance para **IA** e **voz**.
