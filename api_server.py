@@ -97,8 +97,10 @@ def resumo_dia(df: pd.DataFrame) -> dict:
 @app.on_event("startup")
 def load_envs():
     global acc, pwd
-    acc = client_from_env()["account"]
-    pwd = client_from_env()["password"]
+    acc = "demo@goodwe.com"
+    pwd = "GoodweSems123!@#"
+    # acc = client_from_env()["account"]
+    # pwd = client_from_env()["password"]
     print(f"API iniciada em {datetime.utcnow().isoformat()}Z com conta '{acc}' e senha com {len(pwd)} caracteres.")
 
 @app.get("/")
