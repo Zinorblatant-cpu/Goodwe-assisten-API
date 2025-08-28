@@ -7,12 +7,21 @@ from typing import Optional
 import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from analysis import obter_dados, analisar_dia
+from goodwe_client import client_from_env
 
 # ================== Configurações ==================
 ROOT = Path(__file__).parent
 MOCK_PATH = ROOT / "data" / "mock_today.json"
 
 app = FastAPI(title="GoodWe Assistant API", version="1.0")
+acc = None
+pwd = None
+
+class Request(BaseModel):
+    inverter_sn: str
 
 # Habilita CORS (útil para testes em browser, não atrapalha Alexa)
 app.add_middleware(
@@ -85,31 +94,52 @@ def resumo_dia(df: pd.DataFrame) -> dict:
     }
 
 # ================== Rotas ==================
+@app.on_event("startup")
+def load_envs():
+    global acc, pwd
+    acc = client_from_env()["account"]
+    pwd = client_from_env()["password"]
+    print(f"API iniciada em {datetime.utcnow().isoformat()}Z com conta '{acc}' e senha com {len(pwd)} caracteres.")
+
 @app.get("/")
 def read_root():
     return {"message": "API Goodwe rodando com sucesso 🚀"}
 
 
-@app.get("/status")
-def get_status():
-    """Retorna resumo diário baseado nos dados mockados (ou futuros dados reais)."""
-    df = carregar_mock(MOCK_PATH)
-    return resumo_dia(df)
+# @app.get("/status")
+# def get_status():
+#     """Retorna resumo diário baseado nos dados mockados (ou futuros dados reais)."""
+#     df = carregar_mock(MOCK_PATH)
+#     return resumo_dia(df)
 
 
-@app.get("/potencia")
-def get_potencia():
-    """Exemplo de endpoint simples (mockado)."""
-    return {"potencia": "3500W"}
+@app.post("/potencia")
+def get_potencia(data: Request):
+    dataframe = obter_dados(acc, pwd, data.inverter_sn, columns=["Pac"])
+
+    response = analisar_dia(dataframe)
+
+    return response
 
 
-@app.get("/tensao")
-def get_tensao():
-    """Exemplo de endpoint simples (mockado)."""
-    return {"tensao": "220V"}
+# @app.get("/tensao")
+# def get_tensao():
+#     """Exemplo de endpoint simples (mockado)."""
+#     return {"tensao": "220V"}
+
+@app.post("/bateria")
+def get_soc(data: Request):
+    dataframe = obter_dados(acc, pwd, data.inverter_sn, columns=["Cbattery1"])
+
+    response = analisar_dia(dataframe)
+
+    return response
 
 
-@app.get("/energia-hoje")
-def get_energia_hoje():
-    """Exemplo de endpoint simples (mockado)."""
-    return {"energia_hoje": "12.4 kWh"}
+@app.post("/energia-hoje")
+def get_energia_hoje(data: Request):
+    dataframe = obter_dados(acc, pwd, data.inverter_sn, columns=["Eday"])
+
+    response = analisar_dia(dataframe)
+
+    return response

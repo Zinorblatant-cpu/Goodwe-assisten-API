@@ -1,4 +1,3 @@
-# app.py (versão só com análise, sem Streamlit)
 import os
 import json
 from pathlib import Path
@@ -31,22 +30,23 @@ def resumo_dia(df: pd.DataFrame) -> dict:
     """Calcula agregados simples para a análise."""
     if df.empty:
         return {}
-    energia_dia = float(df["Eday"].dropna().iloc[-1]) if "Eday" in df.columns and not df["Eday"].dropna().empty else 0.0
+    energia_dia = float(df["Eday"].dropna().iloc[-1]) if "Eday" in df.columns and not df["Eday"].dropna().empty else None
     if "Pac" in df.columns and not df["Pac"].dropna().empty:
         idx_max = df["Pac"].idxmax()
         pico_p = float(df.loc[idx_max, "Pac"])
         pico_h = df.loc[idx_max, "time"] if "time" in df.columns else None
     else:
-        pico_p, pico_h = 0.0, None
+        pico_p, pico_h = None, None
     soc_ini = int(df["Cbattery1"].dropna().iloc[0]) if "Cbattery1" in df.columns and not df["Cbattery1"].dropna().empty else None
     soc_fim = int(df["Cbattery1"].dropna().iloc[-1]) if "Cbattery1" in df.columns and not df["Cbattery1"].dropna().empty else None
-    return {
+    result = {
         "energia_dia": energia_dia,
         "pico_potencia": pico_p,
         "hora_pico": pico_h,
         "soc_ini": soc_ini,
         "soc_fim": soc_fim,
     }
+    return {k: v for k, v in result.items() if v is not None and pd.notna(v)}
 
 def parse_column_timeseries(resp_json, column_name: str) -> pd.DataFrame:
     """Extrai série temporal do formato comum do SEMS."""

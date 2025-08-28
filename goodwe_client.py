@@ -8,6 +8,7 @@ import os
 import json
 import base64
 import requests
+from dotenv import load_dotenv
 from typing import Literal, Dict, Any
 
 Region = Literal["us", "eu"]
@@ -58,10 +59,12 @@ def get_inverter_data_by_column(token: str, inv_id: str, column: str, date: str,
     r.raise_for_status()
     return r.json()
 
+
 def client_from_env() -> Dict[str, str]:
     """
     Lê variáveis de ambiente SEMS_ACCOUNT, SEMS_PASSWORD, SEMS_REGION (us|eu).
     """
+    load_dotenv()
     acc = os.getenv("SEMS_ACCOUNT", "")
     pwd = os.getenv("SEMS_PASSWORD", "")
     region = os.getenv("SEMS_REGION", "us")
