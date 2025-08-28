@@ -108,11 +108,15 @@ def read_root():
     return {"message": "API Goodwe rodando com sucesso 🚀"}
 
 
-# @app.get("/status")
-# def get_status():
-#     """Retorna resumo diário baseado nos dados mockados (ou futuros dados reais)."""
-#     df = carregar_mock(MOCK_PATH)
-#     return resumo_dia(df)
+@app.post("/status")
+def get_status(data: Request):
+    dataframe = obter_dados(acc, pwd, data.inverter_sn, columns=["Pac"])
+
+    response = analisar_dia(dataframe)
+    response.pop("pico_potencia")
+    response.pop("hora_pico")
+
+    return response
 
 
 @app.post("/potencia")
@@ -120,6 +124,7 @@ def get_potencia(data: Request):
     dataframe = obter_dados(acc, pwd, data.inverter_sn, columns=["Pac"])
 
     response = analisar_dia(dataframe)
+    response.pop("status")
 
     return response
 

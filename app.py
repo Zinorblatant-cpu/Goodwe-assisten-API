@@ -35,6 +35,7 @@ def resumo_dia(df: pd.DataFrame) -> dict:
         idx_max = df["Pac"].idxmax()
         pico_p = float(df.loc[idx_max, "Pac"])
         pico_h = df.loc[idx_max, "time"] if "time" in df.columns else None
+        status = "ligado" if pico_p > 5 else "desligado"
     else:
         pico_p, pico_h = None, None
     soc_ini = int(df["Cbattery1"].dropna().iloc[0]) if "Cbattery1" in df.columns and not df["Cbattery1"].dropna().empty else None
@@ -45,6 +46,7 @@ def resumo_dia(df: pd.DataFrame) -> dict:
         "hora_pico": pico_h,
         "soc_ini": soc_ini,
         "soc_fim": soc_fim,
+        "status": status
     }
     return {k: v for k, v in result.items() if v is not None and pd.notna(v)}
 
