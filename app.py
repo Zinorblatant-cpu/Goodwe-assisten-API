@@ -31,6 +31,7 @@ def resumo_dia(df: pd.DataFrame) -> dict:
     if df.empty:
         return {}
     energia_dia = float(df["Eday"].dropna().iloc[-1]) if "Eday" in df.columns and not df["Eday"].dropna().empty else None
+    status = "desconhecido"
     if "Pac" in df.columns and not df["Pac"].dropna().empty:
         idx_max = df["Pac"].idxmax()
         pico_p = float(df.loc[idx_max, "Pac"])

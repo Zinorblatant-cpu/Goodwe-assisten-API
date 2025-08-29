@@ -139,6 +139,7 @@ def get_soc(data: Request):
     dataframe = obter_dados(acc, pwd, data.inverter_sn, columns=["Cbattery1"])
 
     response = analisar_dia(dataframe)
+    response.pop("status")
 
     return response
 
@@ -148,5 +149,6 @@ def get_energia_hoje(data: Request):
     dataframe = obter_dados(acc, pwd, data.inverter_sn, columns=["Eday"])
 
     response = analisar_dia(dataframe)
+    response.pop("status")
 
     return response
