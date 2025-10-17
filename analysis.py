@@ -16,8 +16,8 @@ def analisar_dia(df: pd.DataFrame) -> dict:
 
 if __name__ == "__main__":
     # Exemplo: usar credenciais reais ou demo
-    account = "demo@goodwe.com"
-    password = "GoodweSems123!@#"
+    account = "chellengegoodwe@gmail.com"
+    password = "Goodwe2018"
     inverter_sn = "5010KETU229W6177"
 
     df = obter_dados(account, password, inverter_sn)
