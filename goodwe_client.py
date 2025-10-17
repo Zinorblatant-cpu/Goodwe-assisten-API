@@ -11,12 +11,9 @@ import requests
 from dotenv import load_dotenv
 from typing import Literal, Dict, Any
 
-Region = Literal["us", "eu"]
+Region = Literal["us"]
 
-BASE = {
-    "us": "https://us.semsportal.com",
-    "eu": "https://eu.semsportal.com",
-}
+BASE = "https://us.semsportal.com/"
 
 def _initial_token() -> str:
     """
