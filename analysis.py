@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # Exemplo: usar credenciais reais ou demo
     account = "chellengegoodwe@gmail.com"
     password = "Goodwe2018"
-    inverter_sn = "5010KETU229W6177"
+    inverter_sn = "53600ERN238W0001"
 
     df = obter_dados(account, password, inverter_sn)
     print("DataFrame bruto:")
