@@ -11,8 +11,8 @@ import requests
 from dotenv import load_dotenv
 from typing import Dict, Any
 
-
-URL = "https://us.semsportal.com/"
+load_dotenv()
+base_url = os.getenv("SEMS_BASE_URL", "")
 
 def _initial_token() -> str:
     """
@@ -26,7 +26,7 @@ def crosslogin(account: str, pwd: str, region: str = "us") -> str:
     """
     Faz o crosslogin e devolve o Token válido (Base64 do campo 'data' da resposta).
     """
-    url = f"{URL}/api/v2/common/crosslogin"
+    url = f"{base_url}/api/v2/common/crosslogin"
     headers = {"Token": _initial_token(), "Content-Type": "application/json", "Accept": "*/*"}
     payload = {
         "account": account,
@@ -48,7 +48,7 @@ def get_inverter_data_by_column(token: str, inv_id: str, column: str, date: str,
     Chama o endpoint GetInverterDataByColumn.
     Ex.: column='Cbattery1', date='YYYY-MM-DD HH:MM:SS', inv_id='5010KETU229W6177'
     """
-    url = f"{URL}/api/PowerStationMonitor/GetInverterDataByColumn"
+    url = f"{base_url}/api/PowerStationMonitor/GetInverterDataByColumn"
     headers = {"Token": token, "Content-Type": "application/json", "Accept": "*/*"}
     payload = {"date": date, "column": column, "id": inv_id}
     r = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -68,14 +68,14 @@ def client_from_env() -> Dict[str, str]:
         raise RuntimeError("Defina SEMS_ACCOUNT e SEMS_PASSWORD no ambiente.")
     return {"account": acc, "password": pwd, "region": region}
 
+
+# Não utilizado diretamente, mas útil para testes rápidos.
 if __name__ == "__main__":
-    # Exemplo (somente se você definiu as variáveis de ambiente):
+    # Defina as variáveis de ambiente
     try:
         cfg = client_from_env()
-        token = crosslogin(cfg["account"], cfg["password"], cfg["region"])  # token pós-login
+        token = crosslogin(cfg["account"], cfg["password"], cfg["region"])
         print("Login OK. Token pronto.")
-        # Exemplo de leitura (ajuste IDs/coluna/data antes de rodar):
-        # resp = get_inverter_data_by_column(token, "5010KETU229W6177", "Cbattery1", "2025-08-12 00:21:01", "eu")
-        # print(resp)
+
     except Exception as e:
         print("Aviso:", e)

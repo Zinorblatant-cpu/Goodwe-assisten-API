@@ -1,7 +1,6 @@
 # analysis.py
 from datetime import date
-from goodwe_client import crosslogin, get_inverter_data_by_column
-from app import parse_column_timeseries, fetch_realtime_df, resumo_dia
+from app import fetch_realtime_df, resumo_dia
 import pandas as pd
 
 def obter_dados(account, password, inverter_sn, req_date=date.today(), columns=None):

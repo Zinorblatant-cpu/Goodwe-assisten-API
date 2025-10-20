@@ -19,6 +19,7 @@ MOCK_PATH = ROOT / "data" / "mock_today.json"
 app = FastAPI(title="GoodWe Assistant API", version="1.0")
 acc = None
 pwd = None
+region = None
 
 class Request(BaseModel):
     inverter_sn: str
@@ -96,11 +97,12 @@ def resumo_dia(df: pd.DataFrame) -> dict:
 # ================== Rotas ==================
 @app.on_event("startup")
 def load_envs():
-    global acc, pwd
+    global acc, pwd, region
 
     acc = client_from_env()["account"]
     pwd = client_from_env()["password"]
-    print(f"API iniciada em {datetime.utcnow().isoformat()}Z com conta '{acc}' e senha com {len(pwd)} caracteres.")
+    region = client_from_env()["region"]
+    print(f"API iniciada em {datetime.utcnow().isoformat()}Z com conta '{acc}', senha com {len(pwd)} caracteres e região '{region}'.")
 
 @app.get("/")
 def read_root():
