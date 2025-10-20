@@ -9,11 +9,10 @@ import json
 import base64
 import requests
 from dotenv import load_dotenv
-from typing import Literal, Dict, Any
+from typing import Dict, Any
 
-Region = Literal["us"]
 
-BASE = "https://us.semsportal.com/"
+URL = "https://us.semsportal.com/"
 
 def _initial_token() -> str:
     """
@@ -23,11 +22,11 @@ def _initial_token() -> str:
     b = json.dumps(original).encode("utf-8")
     return base64.b64encode(b).decode("utf-8")
 
-def crosslogin(account: str, pwd: str, region: Region = "us") -> str:
+def crosslogin(account: str, pwd: str, region: str = "us") -> str:
     """
     Faz o crosslogin e devolve o Token válido (Base64 do campo 'data' da resposta).
     """
-    url = f"{BASE[region]}/api/v2/common/crosslogin"
+    url = f"{URL}/api/v2/common/crosslogin"
     headers = {"Token": _initial_token(), "Content-Type": "application/json", "Accept": "*/*"}
     payload = {
         "account": account,
@@ -44,12 +43,12 @@ def crosslogin(account: str, pwd: str, region: Region = "us") -> str:
     token = base64.b64encode(data_to_string.encode("utf-8")).decode("utf-8")
     return token
 
-def get_inverter_data_by_column(token: str, inv_id: str, column: str, date: str, region: Region = "eu") -> Dict[str, Any]:
+def get_inverter_data_by_column(token: str, inv_id: str, column: str, date: str, region: str = "eu") -> Dict[str, Any]:
     """
     Chama o endpoint GetInverterDataByColumn.
     Ex.: column='Cbattery1', date='YYYY-MM-DD HH:MM:SS', inv_id='5010KETU229W6177'
     """
-    url = f"{BASE[region]}/api/PowerStationMonitor/GetInverterDataByColumn"
+    url = f"{URL}/api/PowerStationMonitor/GetInverterDataByColumn"
     headers = {"Token": token, "Content-Type": "application/json", "Accept": "*/*"}
     payload = {"date": date, "column": column, "id": inv_id}
     r = requests.post(url, json=payload, headers=headers, timeout=20)
